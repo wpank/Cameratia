@@ -13,4 +13,7 @@
     <string name="photo_send_chooser_title">Share photo with &#8230;</string>
     <string name="photo_send_extra_subject">This cool photo from Cameratia</string>
     <string name="photo_send_extra_text">Check out my photo!</string>
+    <string name="menu_next_curve_filter">Next Curve</string>
+    <string name="menu_next_mixer_filter">Next Mixer</string>
+    <string name="menu_next_convolution_filter">Next Kernel</string>
 </resources>

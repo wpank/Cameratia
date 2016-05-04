@@ -68,6 +68,17 @@ import java.io.File;
 import java.util.List;
 import java.util.concurrent.RunnableFuture;
 
+import me.pankiewicz.will.cameratia.filters.Filter;
+import me.pankiewicz.will.cameratia.filters.NoneFilter;
+import me.pankiewicz.will.cameratia.filters.convolution.StrokeEdgesFilter;
+import me.pankiewicz.will.cameratia.filters.curve.CrossProcessCurveFilter;
+import me.pankiewicz.will.cameratia.filters.curve.PortraCurveFilter;
+import me.pankiewicz.will.cameratia.filters.curve.ProviaCurveFilter;
+import me.pankiewicz.will.cameratia.filters.curve.VelviaCurveFilter;
+import me.pankiewicz.will.cameratia.filters.mixer.RecolorCMVFilter;
+import me.pankiewicz.will.cameratia.filters.mixer.RecolorRCFilter;
+import me.pankiewicz.will.cameratia.filters.mixer.RecolorRGVFilter;
+
 // Use theh deprecated Camera class
 @SuppressWarnings("deprecation")
 public class CameraActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
@@ -81,8 +92,25 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     // A key for storing the index of the active image size.
     private static final String STATE_IMAGE_SIZE_INDEX = "imageSizeIndex";
 
+    // Keys for stroing the indices of the active filters.
+    private static final String STATE_CURVE_FILTER_INDEX = "curveFilterIndex";
+    private static final String STATE_MIXER_FILTER_INDEX = "mixerFilterIndex";
+    private static final String STATE_CONVOLUTION_FILTER_INDEX = "convolutionFilterIndex";
+
     // An ID for items in the image size submenu
     private static final int MENU_GROUP_ID_SIZE=2;
+
+
+    // the filters
+    private Filter[] mCurveFilters;
+    private Filter[] mMixerFilters;
+    private Filter[] mConvolutionFilters;
+
+    // The indices of the active filters
+    private int mCurveFilterIndex;
+    private int mMixerFilterIndex;
+    private int mConvolutionFilterIndex;
+
 
     // The index of the active camera
     private int mCameraIndex;
@@ -113,6 +141,10 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     // if so, menu interaction should be disabled
     private boolean mIsMenuLocked;
 
+
+
+
+
     // the OpenCV loader callback
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -122,6 +154,23 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
                     Log.d(TAG, "OpenCV loaded successfully");
                     mCameraView.enableView();
                     mBgr = new Mat();
+                    mCurveFilters = new Filter[]{
+                            new NoneFilter(),
+                            new PortraCurveFilter(),
+                            new ProviaCurveFilter(),
+                            new VelviaCurveFilter(),
+                            new CrossProcessCurveFilter()
+                    };
+                    mMixerFilters = new Filter[]{
+                            new NoneFilter(),
+                            new RecolorRCFilter(),
+                            new RecolorRGVFilter(),
+                            new RecolorCMVFilter()
+                    };
+                    mConvolutionFilters = new Filter[] {
+                            new NoneFilter(),
+                            new StrokeEdgesFilter()
+                    };
                     break;
                 default:
                     super.onManagerConnected(status);
@@ -144,9 +193,15 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         if (savedInstanceState != null){
             mCameraIndex = savedInstanceState.getInt(STATE_CAMERA_INDEX, 0);
             mImageSizeIndex = savedInstanceState.getInt(STATE_IMAGE_SIZE_INDEX, 0);
+            mCurveFilterIndex = savedInstanceState.getInt(STATE_CURVE_FILTER_INDEX, 0);
+            mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0);
+            mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0);
         }else {
             mCameraIndex = 0;
             mImageSizeIndex = 0;
+            mCurveFilterIndex = 0;
+            mMixerFilterIndex = 0;
+            mConvolutionFilterIndex = 0;
         }
 
         final Camera camera;
@@ -180,6 +235,10 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         // Save the current image size index
         savedInstanceState.putInt(STATE_IMAGE_SIZE_INDEX, mImageSizeIndex);
 
+        // Save the current filter indices
+        savedInstanceState.putInt(STATE_CURVE_FILTER_INDEX, mCurveFilterIndex);
+        savedInstanceState.putInt(STATE_MIXER_FILTER_INDEX, mMixerFilterIndex);
+        savedInstanceState.putInt(STATE_CONVOLUTION_FILTER_INDEX, mConvolutionFilterIndex);
         super.onSaveInstanceState(savedInstanceState);
     }
 
@@ -251,6 +310,24 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
             return true;
         }
         switch(item.getItemId()){
+            case R.id.menu_next_curve_filter:
+                mCurveFilterIndex++;
+                if (mCurveFilterIndex == mCurveFilters.length){
+                    mCurveFilterIndex = 0;
+                }
+                return true;
+            case R.id.menu_next_mixer_filter:
+                mMixerFilterIndex++;
+                if (mMixerFilterIndex == mMixerFilters.length){
+                    mMixerFilterIndex = 0;
+                }
+                return true;
+            case R.id.menu_next_convolution_filter:
+                mConvolutionFilterIndex++;
+                if (mConvolutionFilterIndex == mConvolutionFilters.length){
+                    mConvolutionFilterIndex = 0;
+                }
+                return true;
             case R.id.menu_other_camera:
                 mIsMenuLocked = true;
 
@@ -286,6 +363,10 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     @Override
     public Mat onCameraFrame(final CvCameraViewFrame inputFrame){
         final Mat rgba = inputFrame.rgba();
+        // Apply the active filters
+        mCurveFilters[mCurveFilterIndex].apply(rgba, rgba);
+        mMixerFilters[mMixerFilterIndex].apply(rgba, rgba);
+        mConvolutionFilters[mConvolutionFilterIndex].apply(rgba, rgba);
 
         if (mIsPhotoPending){
             mIsPhotoPending = false;
